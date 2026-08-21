@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marquesina — buscador para Videasy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0c0b10;
+    --surface: #17151d;
+    --surface-2: #1f1c26;
+    --ink: #f2ede2;
+    --ink-dim: #a39d95;
+    --gold: #e3b04b;
+    --violet: #8b5cf6;
+    --line: #2a2732;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:
+      radial-gradient(1200px 500px at 50% -10%, rgba(139,92,246,0.12), transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+  }
+
+  /* film perforation strip */
+  .perf-strip{
+    display:flex; gap:14px; padding:10px 24px;
+    background:#000;
+    overflow:hidden;
+    border-bottom:1px solid var(--line);
+  }
+  .perf-strip span{
+    width:10px; height:10px; border-radius:2px;
+    background:var(--surface-2); flex:none;
+  }
+
+  header{
+    padding:56px 24px 28px;
+    text-align:center;
+  }
+  .eyebrow{
+    font-size:12px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--gold); margin-bottom:14px; font-weight:600;
+  }
+  h1{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:clamp(32px,5vw,54px);
+    margin:0 0 10px;
+    letter-spacing:-0.01em;
+  }
+  h1 em{ color:var(--violet); font-style:normal; }
+  .sub{ color:var(--ink-dim); font-size:15px; max-width:520px; margin:0 auto; }
+
+  main{ max-width:960px; margin:0 auto; padding:0 24px 80px; }
+
+  .searchbar{
+    display:flex; gap:10px; margin:36px 0 8px;
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:14px; padding:6px;
+  }
+  .searchbar input[type=text]{
+    flex:1; background:transparent; border:none; outline:none;
+    color:var(--ink); font-size:16px; padding:14px 16px; font-family:'Inter',sans-serif;
+  }
+  .searchbar input::placeholder{ color:#5f5a53; }
+  .searchbar button{
+    background:var(--violet); color:#fff; border:none; border-radius:10px;
+    padding:0 24px; font-weight:600; font-size:14px; cursor:pointer;
+    transition:filter .15s ease;
+  }
+  .searchbar button:hover{ filter:brightness(1.12); }
+
+  .apikey-row{
+    display:flex; align-items:center; gap:8px; margin-bottom:32px;
+    font-size:12.5px; color:var(--ink-dim);
+  }
+  .apikey-row input{
+    background:var(--surface); border:1px solid var(--line); border-radius:8px;
+    color:var(--ink); padding:6px 10px; font-size:12.5px; width:260px;
+    font-family:'Inter',sans-serif;
+  }
+  .apikey-row a{ color:var(--gold); text-decoration:none; }
+  .apikey-row a:hover{ text-decoration:underline; }
+
+  .grid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+    gap:18px; margin-top:8px;
+  }
+  .card{
+    background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    overflow:hidden; cursor:pointer; transition:transform .15s ease, border-color .15s ease;
+    position:relative;
+  }
+  .card:hover{ transform:translateY(-4px); border-color:var(--violet); }
+  .card .poster{
+    width:100%; aspect-ratio:2/3; object-fit:cover; display:block; background:var(--surface-2);
+  }
+  .badge{
+    position:absolute; top:8px; left:8px; background:rgba(0,0,0,.65);
+    color:var(--gold); font-size:10px; letter-spacing:.06em; text-transform:uppercase;
+    padding:3px 8px; border-radius:999px; font-weight:600; backdrop-filter:blur(2px);
+  }
+  .card .meta{ padding:10px 12px 12px; }
+  .card .title{ font-size:13.5px; font-weight:600; line-height:1.3; margin-bottom:3px; }
+  .card .year{ font-size:11.5px; color:var(--ink-dim); }
+
+  .empty, .status{
+    color:var(--ink-dim); text-align:center; padding:40px 0; font-size:14px;
+  }
+
+  /* player overlay */
+  .player-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.88); backdrop-filter:blur(4px);
+    display:none; align-items:center; justify-content:center; z-index:50; padding:24px;
+  }
+  .player-overlay.open{ display:flex; }
+  .player-box{
+    width:100%; max-width:1100px; background:#000; border-radius:14px; overflow:hidden;
+    border:1px solid var(--line); position:relative;
+  }
+  .player-topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 16px; background:var(--surface); border-bottom:1px solid var(--line);
+  }
+  .player-topbar .now{ font-size:13.5px; font-weight:600; }
+  .player-topbar .now span{ color:var(--ink-dim); font-weight:400; }
+  .close-btn{
+    background:none; border:1px solid var(--line); color:var(--ink-dim);
+    width:30px; height:30px; border-radius:8px; cursor:pointer; font-size:16px; line-height:1;
+  }
+  .close-btn:hover{ color:var(--ink); border-color:var(--violet); }
+  .ep-controls{
+    display:flex; gap:8px; align-items:center; padding:10px 16px;
+    background:var(--surface); border-bottom:1px solid var(--line); font-size:13px;
+  }
+  .ep-controls label{ color:var(--ink-dim); }
+  .ep-controls input{
+    width:56px; background:var(--surface-2); border:1px solid var(--line); border-radius:6px;
+    color:var(--ink); padding:5px 8px; font-size:13px; text-align:center;
+  }
+  .ep-controls button{
+    background:var(--surface-2); border:1px solid var(--line); color:var(--ink);
+    border-radius:6px; padding:6px 12px; font-size:12.5px; cursor:pointer;
+  }
+  .ep-controls button:hover{ border-color:var(--violet); }
+  iframe{ width:100%; aspect-ratio:16/9; border:0; display:block; }
+
+  footer{ text-align:center; padding:30px 0 50px; color:#5f5a53; font-size:12px; }
+  footer a{ color:var(--ink-dim); }
+</style>
+</head>
+<body>
+
+<div class="perf-strip" id="perf"></div>
+
+<header>
+  <div class="eyebrow">Uso personal · local</div>
+  <h1>Busca. Elige. <em>Reproduce.</em></h1>
+  <p class="sub">Escribe un título, elige el resultado correcto y se carga directo en el reproductor de Videasy — sin buscar IDs a mano.</p>
+</header>
+
+<main>
+  <div class="searchbar">
+    <input type="text" id="q" placeholder="Ej: Breaking Bad, Dune, Avengers Endgame…" autocomplete="off">
+    <button id="go">Buscar</button>
+  </div>
+  <div class="apikey-row">
+    <span>TMDB API key:</span>
+    <input type="text" id="apikey" placeholder="pega tu API key aquí" value="653bb8af90162bd98fc7ee32bcbbfb3d">
+    <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">conseguir la mía gratis →</a>
+  </div>
+
+  <div id="results" class="grid"></div>
+  <div id="status" class="status" style="display:none;"></div>
+</main>
+
+<footer>
+  Metadatos vía <a href="https://www.themoviedb.org" target="_blank" rel="noopener">TMDB</a> · Reproductor vía <a href="https://videasy.net" target="_blank" rel="noopener">Videasy</a>
+</footer>
+
+<div class="player-overlay" id="overlay">
+  <div class="player-box">
+    <div class="player-topbar">
+      <div class="now" id="nowPlaying">—</div>
+      <button class="close-btn" id="closeBtn">✕</button>
+    </div>
+    <div class="ep-controls" id="epControls" style="display:none;">
+      <label>Temporada</label>
+      <input type="number" id="seasonInput" min="1" value="1">
+      <label>Episodio</label>
+      <input type="number" id="episodeInput" min="1" value="1">
+      <button id="loadEp">Cargar</button>
+    </div>
+    <iframe id="player" src="" allowfullscreen allow="encrypted-media"></iframe>
+  </div>
+</div>
+
+<script>
+// decorative film perforations
+const perf = document.getElementById('perf');
+for(let i=0;i<40;i++){ const s=document.createElement('span'); perf.appendChild(s); }
+
+const q = document.getElementById('q');
+const go = document.getElementById('go');
+const apikey = document.getElementById('apikey');
+const results = document.getElementById('results');
+const status = document.getElementById('status');
+
+const overlay = document.getElementById('overlay');
+const player = document.getElementById('player');
+const nowPlaying = document.getElementById('nowPlaying');
+const closeBtn = document.getElementById('closeBtn');
+const epControls = document.getElementById('epControls');
+const seasonInput = document.getElementById('seasonInput');
+const episodeInput = document.getElementById('episodeInput');
+const loadEp = document.getElementById('loadEp');
+
+let currentTV = null; // { id, title }
+
+async function search(){
+  const query = q.value.trim();
+  const key = apikey.value.trim();
+  if(!query) return;
+  if(!key){ status.style.display='block'; status.textContent='Falta la API key de TMDB.'; return; }
+
+  results.innerHTML = '';
+  status.style.display='block';
+  status.textContent = 'Buscando…';
+
+  try{
+    const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${key}&query=${encodeURIComponent(query)}&language=es-ES`);
+    const data = await res.json();
+    const items = (data.results || []).filter(r => r.media_type === 'movie' || r.media_type === 'tv');
+
+    if(items.length === 0){
+      status.textContent = 'No se encontró nada. Prueba con otro título.';
+      return;
+    }
+    status.style.display='none';
+
+    items.forEach(item => {
+      const title = item.title || item.name;
+      const date = item.release_date || item.first_air_date || '';
+      const year = date ? date.slice(0,4) : '—';
+      const poster = item.poster_path
+        ? `https://image.tmdb.org/t/p/w342${item.poster_path}`
+        : null;
+
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <span class="badge">${item.media_type === 'tv' ? 'Serie' : 'Película'}</span>
+        ${poster
+          ? `<img class="poster" src="${poster}" alt="${title}">`
+          : `<div class="poster" style="display:flex;align-items:center;justify-content:center;color:#5f5a53;font-size:12px;padding:10px;text-align:center;">sin imagen</div>`}
+        <div class="meta">
+          <div class="title">${title}</div>
+          <div class="year">${year}</div>
+        </div>
+      `;
+      card.addEventListener('click', () => openPlayer(item.media_type, item.id, title, year));
+      results.appendChild(card);
+    });
+  }catch(err){
+    status.style.display='block';
+    status.textContent = 'Error buscando en TMDB. Revisa tu API key o tu conexión.';
+  }
+}
+
+function buildMovieURL(id){
+  return `https://player.videasy.net/movie/${id}?color=8B5CF6&overlay=true`;
+}
+function buildTVURL(id, season, episode){
+  return `https://player.videasy.net/tv/${id}/${season}/${episode}?color=8B5CF6&nextEpisode=true&autoplayNextEpisode=true&episodeSelector=true&overlay=true`;
+}
+
+function openPlayer(type, id, title, year){
+  overlay.classList.add('open');
+  if(type === 'tv'){
+    currentTV = { id, title };
+    seasonInput.value = 1;
+    episodeInput.value = 1;
+    epControls.style.display = 'flex';
+    nowPlaying.innerHTML = `${title} <span>· S1E1 · ${year}</span>`;
+    player.src = buildTVURL(id, 1, 1);
+  } else {
+    currentTV = null;
+    epControls.style.display = 'none';
+    nowPlaying.innerHTML = `${title} <span>· ${year}</span>`;
+    player.src = buildMovieURL(id);
+  }
+}
+
+loadEp.addEventListener('click', () => {
+  if(!currentTV) return;
+  const s = Math.max(1, parseInt(seasonInput.value) || 1);
+  const e = Math.max(1, parseInt(episodeInput.value) || 1);
+  nowPlaying.innerHTML = `${currentTV.title} <span>· S${s}E${e}</span>`;
+  player.src = buildTVURL(currentTV.id, s, e);
+});
+
+closeBtn.addEventListener('click', () => {
+  overlay.classList.remove('open');
+  player.src = ''; // stop playback
+});
+
+go.addEventListener('click', search);
+q.addEventListener('keydown', e => { if(e.key === 'Enter') search(); });
+</script>
+
+</body>
+</html>
