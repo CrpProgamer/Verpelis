@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Verpelis</title>
+<title>Marquesina — buscador para Videasy</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -28,7 +28,6 @@
     min-height:100vh;
   }
 
-  /* film perforation strip */
   .perf-strip{
     display:flex; gap:14px; padding:10px 24px;
     background:#000;
@@ -115,7 +114,6 @@
     color:var(--ink-dim); text-align:center; padding:40px 0; font-size:14px;
   }
 
-  /* player overlay */
   .player-overlay{
     position:fixed; inset:0; background:rgba(0,0,0,.88); backdrop-filter:blur(4px);
     display:none; align-items:center; justify-content:center; z-index:50; padding:24px;
@@ -136,30 +134,16 @@
     width:30px; height:30px; border-radius:8px; cursor:pointer; font-size:16px; line-height:1;
   }
   .close-btn:hover{ color:var(--ink); border-color:var(--violet); }
-  .ep-controls{
-    display:flex; gap:8px; align-items:center; padding:10px 16px;
-    background:var(--surface); border-bottom:1px solid var(--line); font-size:13px;
-  }
-  .ep-controls label{ color:var(--ink-dim); }
-  .ep-controls input{
-    width:56px; background:var(--surface-2); border:1px solid var(--line); border-radius:6px;
-    color:var(--ink); padding:5px 8px; font-size:13px; text-align:center;
-  }
-  .ep-controls button{
-    background:var(--surface-2); border:1px solid var(--line); color:var(--ink);
-    border-radius:6px; padding:6px 12px; font-size:12.5px; cursor:pointer;
-  }
-  .ep-controls button:hover{ border-color:var(--violet); }
+
   iframe{ width:100%; aspect-ratio:16/9; border:0; display:block; }
 
   footer{ text-align:center; padding:30px 0 50px; color:#5f5a53; font-size:12px; }
   footer a{ color:var(--ink-dim); }
 
-  /* Adaptación para dispositivos móviles */
   @media (max-width: 600px) {
     header { padding: 32px 16px 20px; }
     main { padding: 0 16px 60px; }
-    
+
     .searchbar {
       flex-direction: column;
       background: transparent;
@@ -171,10 +155,12 @@
       border: 1px solid var(--line);
       border-radius: 10px;
       background: var(--surface);
+      padding: 16px;
     }
     .searchbar button {
-      padding: 14px;
+      padding: 16px;
       width: 100%;
+      height: 48px;
     }
 
     .apikey-row {
@@ -184,6 +170,7 @@
     }
     .apikey-row input {
       width: 100%;
+      height: 44px;
     }
 
     .grid {
@@ -191,13 +178,24 @@
       gap: 12px;
     }
 
-    .player-overlay { padding: 12px; }
-    .ep-controls {
-      flex-wrap: wrap;
-      justify-content: space-between;
+    .player-overlay {
+      padding: 0;
     }
-    .ep-controls input { width: 48px; }
-    .ep-controls button { width: 100%; margin-top: 8px; }
+    .player-box {
+      border-radius: 0;
+      border-left: none;
+      border-right: none;
+      max-width: 100vw;
+    }
+
+    .player-topbar {
+      padding: 12px 16px;
+    }
+    .close-btn {
+      width: 44px;
+      height: 44px;
+      font-size: 20px;
+    }
   }
 </style>
 </head>
@@ -216,13 +214,11 @@
     <input type="text" id="q" placeholder="Ej: Breaking Bad, Dune, Avengers Endgame…" autocomplete="off">
     <button id="go">Buscar</button>
   </div>
-  
-   <div class="apikey-row">
+  <div class="apikey-row">
     <span>TMDB API key:</span>
     <input type="text" id="apikey" placeholder="pega tu API key aquí" value="653bb8af90162bd98fc7ee32bcbbfb3d">
     <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">conseguir la mía gratis →</a>
   </div>
- 
 
   <div id="results" class="grid"></div>
   <div id="status" class="status" style="display:none;"></div>
@@ -238,19 +234,11 @@
       <div class="now" id="nowPlaying">—</div>
       <button class="close-btn" id="closeBtn">✕</button>
     </div>
-    <div class="ep-controls" id="epControls" style="display:none;">
-      <label>Temporada</label>
-      <input type="number" id="seasonInput" min="1" value="1">
-      <label>Episodio</label>
-      <input type="number" id="episodeInput" min="1" value="1">
-      <button id="loadEp">Cargar</button>
-    </div>
     <iframe id="player" src="" allowfullscreen allow="encrypted-media"></iframe>
   </div>
 </div>
 
 <script>
-// decorative film perforations
 const perf = document.getElementById('perf');
 for(let i=0;i<40;i++){ const s=document.createElement('span'); perf.appendChild(s); }
 
@@ -264,12 +252,6 @@ const overlay = document.getElementById('overlay');
 const player = document.getElementById('player');
 const nowPlaying = document.getElementById('nowPlaying');
 const closeBtn = document.getElementById('closeBtn');
-const epControls = document.getElementById('epControls');
-const seasonInput = document.getElementById('seasonInput');
-const episodeInput = document.getElementById('episodeInput');
-const loadEp = document.getElementById('loadEp');
-
-let currentTV = null; // { id, title }
 
 async function search(){
   const query = q.value.trim();
@@ -331,31 +313,17 @@ function buildTVURL(id, season, episode){
 function openPlayer(type, id, title, year){
   overlay.classList.add('open');
   if(type === 'tv'){
-    currentTV = { id, title };
-    seasonInput.value = 1;
-    episodeInput.value = 1;
-    epControls.style.display = 'flex';
-    nowPlaying.innerHTML = `${title} <span>· S1E1 · ${year}</span>`;
+    nowPlaying.innerHTML = `${title} <span>· ${year}</span>`;
     player.src = buildTVURL(id, 1, 1);
   } else {
-    currentTV = null;
-    epControls.style.display = 'none';
     nowPlaying.innerHTML = `${title} <span>· ${year}</span>`;
     player.src = buildMovieURL(id);
   }
 }
 
-loadEp.addEventListener('click', () => {
-  if(!currentTV) return;
-  const s = Math.max(1, parseInt(seasonInput.value) || 1);
-  const e = Math.max(1, parseInt(episodeInput.value) || 1);
-  nowPlaying.innerHTML = `${currentTV.title} <span>· S${s}E${e}</span>`;
-  player.src = buildTVURL(currentTV.id, s, e);
-});
-
 closeBtn.addEventListener('click', () => {
   overlay.classList.remove('open');
-  player.src = ''; // stop playback
+  player.src = '';
 });
 
 go.addEventListener('click', search);
